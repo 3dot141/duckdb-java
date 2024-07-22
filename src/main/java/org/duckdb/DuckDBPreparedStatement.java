@@ -1,6 +1,5 @@
 package org.duckdb;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
@@ -31,7 +30,6 @@ import java.sql.Types;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
 import java.util.logging.Level;
@@ -796,17 +794,17 @@ public class DuckDBPreparedStatement implements PreparedStatement {
 
     @Override
     public void setDate(int parameterIndex, Date x, Calendar cal) throws SQLException {
-        throw new SQLFeatureNotSupportedException("setDate");
+        this.setDate(parameterIndex, x);
     }
 
     @Override
     public void setTime(int parameterIndex, Time x, Calendar cal) throws SQLException {
-        throw new SQLFeatureNotSupportedException("setTime");
+        this.setTime(parameterIndex, x);
     }
 
     @Override
     public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal) throws SQLException {
-        throw new SQLFeatureNotSupportedException("setTimestamp");
+        this.setTimestamp(parameterIndex, x);
     }
 
     @Override
