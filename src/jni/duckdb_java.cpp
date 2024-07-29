@@ -232,7 +232,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
 	tmpLocalRef = env->FindClass("org/duckdb/DuckDBTimestamp");
 	J_DuckDBTimestamp = (jclass)env->NewGlobalRef(tmpLocalRef);
 	env->DeleteLocalRef(tmpLocalRef);
-	J_DuckDBTimestamp_valueOf = env->GetStaticMethodID(J_DuckDBTimestamp, "valueOf", "(Ljava/lang/Object;)Ljava/lang/Object;");
+	J_DuckDBTimestamp_valueOf =
+	    env->GetStaticMethodID(J_DuckDBTimestamp, "valueOf", "(Ljava/lang/Object;)Ljava/lang/Object;");
 
 	tmpLocalRef = env->FindClass("org/duckdb/DuckDBTimestampTZ");
 	J_DuckDBTimestampTZ = (jclass)env->NewGlobalRef(tmpLocalRef);
@@ -673,7 +674,7 @@ Value ToValue(JNIEnv *env, jobject param, duckdb::shared_ptr<ClientContext> cont
 	} else if (env->IsInstanceOf(param, J_Long)) {
 		return (Value::BIGINT(env->CallLongMethod(param, J_Long_longValue)));
 	} else if (env->IsInstanceOf(param, J_Date)) {
-		return  Value::DATE((date_t)env->CallNonvirtualLongMethod(param, J_Date, J_Date_getTime));
+		return Value::DATE((date_t)env->CallNonvirtualLongMethod(param, J_Date, J_Date_getTime));
 	} else if (env->IsInstanceOf(param, J_Time)) {
 		return Value::TIME((dtime_t)env->CallNonvirtualLongMethod(param, J_Date, J_Date_getTime));
 	} else if (env->IsInstanceOf(param, J_Timestamp)) {
@@ -1328,7 +1329,6 @@ void _duckdb_jdbc_create_extension_type(JNIEnv *env, jclass, jobject conn_buf) {
 	ExtensionUtil::RegisterType(db_instance, "byte_test_type", byte_test_type_type);
 }
 
-
 static LogicalType jclass_to_logical(JNIEnv *env, jclass java_class) {
 
 	if (java_class == nullptr) {
@@ -1368,7 +1368,7 @@ static jobject value_to_jobject(JNIEnv *env, const Value &val) {
 
 	jobject result = nullptr;
 
-	const LogicalType& val_type = val.type();
+	const LogicalType &val_type = val.type();
 	LogicalTypeId type_id = val_type.HasAlias() ? LogicalTypeId::UNKNOWN : val_type.id();
 
 	switch (type_id) {
@@ -1435,11 +1435,11 @@ static jobject value_to_jobject(JNIEnv *env, const Value &val) {
 	return result;
 }
 
-static scalar_function_t GenJavaScalarFunc(Connection *conn_ref,
-	const string& class_name, const string& method_name, const string& method_sign) {
+static scalar_function_t GenJavaScalarFunc(Connection *conn_ref, const string &class_name, const string &method_name,
+                                           const string &method_sign) {
 
-	scalar_function_t javaScalarFunc = [&conn_ref, class_name, method_name, method_sign](DataChunk &args, ExpressionState &state, Vector &result) {
-
+	scalar_function_t javaScalarFunc = [&conn_ref, class_name, method_name,
+	                                    method_sign](DataChunk &args, ExpressionState &state, Vector &result) {
 		// Get JNIEnv from vm
 		JNIEnv *env;
 		jvm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION);
@@ -1456,8 +1456,7 @@ static scalar_function_t GenJavaScalarFunc(Connection *conn_ref,
 
 			// 获取类和方法
 			jclass tmp_class = env->FindClass(class_name.c_str());
-			jmethodID tmp_method_id =
-			    env->GetStaticMethodID(tmp_class, method_name.c_str(), method_sign.c_str());
+			jmethodID tmp_method_id = env->GetStaticMethodID(tmp_class, method_name.c_str(), method_sign.c_str());
 
 			// 执行方法调用
 			jobject java_result = env->CallStaticObjectMethodA(tmp_class, tmp_method_id, java_args);
