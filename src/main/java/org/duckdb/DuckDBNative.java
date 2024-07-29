@@ -3,6 +3,7 @@ package org.duckdb;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.nio.ByteBuffer;
@@ -167,4 +168,6 @@ class DuckDBNative {
     public static void duckdb_jdbc_create_extension_type(DuckDBConnection conn) throws SQLException {
         duckdb_jdbc_create_extension_type(conn.conn_ref);
     }
+
+    public static native void duckdb_jdbc_register_scalar_func(ByteBuffer conn_ref, String func_name, String class_name, Method java_method, String method_name, String method_sign) throws SQLException;
 }

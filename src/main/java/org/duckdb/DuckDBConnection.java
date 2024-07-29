@@ -1,6 +1,11 @@
 package org.duckdb;
 
+import org.duckdb.user.DuckDBMap;
+import org.duckdb.user.DuckDBUserArray;
+import org.duckdb.user.DuckDBUserStruct;
+
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
@@ -23,13 +28,12 @@ import java.sql.Struct;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
-import org.duckdb.user.DuckDBMap;
-import org.duckdb.user.DuckDBUserArray;
-import org.duckdb.user.DuckDBUserStruct;
 
 public final class DuckDBConnection implements java.sql.Connection {
 
-    /** Name of the DuckDB default schema. */
+    /**
+     * Name of the DuckDB default schema.
+     */
     public static final String DEFAULT_SCHEMA = "main";
 
     ByteBuffer conn_ref;
@@ -39,7 +43,7 @@ public final class DuckDBConnection implements java.sql.Connection {
     private final boolean readOnly;
 
     public static DuckDBConnection newConnection(String url, boolean readOnly, Properties properties)
-        throws SQLException {
+            throws SQLException {
         if (!url.startsWith("jdbc:duckdb:")) {
             throw new SQLException("DuckDB JDBC URL needs to start with 'jdbc:duckdb:'");
         }
@@ -48,7 +52,7 @@ public final class DuckDBConnection implements java.sql.Connection {
             db_dir = ":memory:";
         }
         ByteBuffer nativeReference =
-            DuckDBNative.duckdb_jdbc_startup(db_dir.getBytes(StandardCharsets.UTF_8), readOnly, properties);
+                DuckDBNative.duckdb_jdbc_startup(db_dir.getBytes(StandardCharsets.UTF_8), readOnly, properties);
         return new DuckDBConnection(nativeReference, url, readOnly);
     }
 
@@ -60,7 +64,7 @@ public final class DuckDBConnection implements java.sql.Connection {
     }
 
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability)
-        throws SQLException {
+            throws SQLException {
         if (isClosed()) {
             throw new SQLException("Connection was closed");
         }
@@ -248,7 +252,7 @@ public final class DuckDBConnection implements java.sql.Connection {
     }
 
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency)
-        throws SQLException {
+            throws SQLException {
         return prepareStatement(sql, resultSetType, resultSetConcurrency, 0);
     }
 
@@ -371,4 +375,13 @@ public final class DuckDBConnection implements java.sql.Connection {
         long array_stream_address = getArrowStreamAddress(arrow_array_stream);
         DuckDBNative.duckdb_jdbc_arrow_register(conn_ref, array_stream_address, name.getBytes(StandardCharsets.UTF_8));
     }
+
+    public void registerScalarFunc(String func_name, Method method) throws SQLException {
+
+        Class<?> declaringClass = method.getDeclaringClass();
+        String name = method.getName();
+        String signature = JdbcUtils.getSignature(method);
+        DuckDBNative.duckdb_jdbc_register_scalar_func(conn_ref, func_name, declaringClass.getName().replaceAll("\\.", "/"), method, name, signature);
+    }
+
 }

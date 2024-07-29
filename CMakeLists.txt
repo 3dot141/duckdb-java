@@ -34,7 +34,8 @@ add_definitions(-DDUCKDB_BUILD_LIBRARY)
 if(MSVC)
   add_definitions(/bigobj /D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
 else()
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG ")
+  # 添加 debug 参数， 从而帮助 debug
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g ")
   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 endif()
 

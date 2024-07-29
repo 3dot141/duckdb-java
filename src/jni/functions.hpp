@@ -5,6 +5,8 @@
 #include "duckdb/common/assert.hpp"
 #include "duckdb/common/error_data.hpp"
 #include "org_duckdb_DuckDBNative.h"
+
+#include <duckdb/main/connection.hpp>
 #include <exception>
 
 void ThrowJNI(JNIEnv* env, const char* message);
@@ -156,3 +158,8 @@ JNIEXPORT void JNICALL Java_org_duckdb_DuckDBNative_duckdb_1jdbc_1appender_1appe
 void _duckdb_jdbc_create_extension_type(JNIEnv * env, jclass param0, jobject param1);
 
 JNIEXPORT void JNICALL Java_org_duckdb_DuckDBNative_duckdb_1jdbc_1create_1extension_1type(JNIEnv * env, jclass param0, jobject param1);
+
+void _duckdb_jdbc_register_scalar_func(JNIEnv *env, jclass, jobject conn_buf, jstring func_name,
+                                       jstring class_name,
+                                       jobject java_method, jstring method_name, jstring method_sign);
+
