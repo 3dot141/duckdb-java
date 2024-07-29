@@ -1444,11 +1444,12 @@ static scalar_function_t GenJavaScalarFunc(Connection *conn_ref, const string &c
 		JNIEnv *env;
 		jvm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION);
 
-		try {
 
+		try {
 			// 初始化参数
 			auto num_columns = args.ColumnCount();
-			jvalue java_args[num_columns];
+			std::unique_ptr<jvalue[]> java_args(new jvalue[num_columns]);
+
 			for (idx_t column = 0; column < num_columns; column++) {
 				auto val = args.GetValue(column, 0);
 				java_args[column].l = value_to_jobject(env, val);
@@ -1459,7 +1460,7 @@ static scalar_function_t GenJavaScalarFunc(Connection *conn_ref, const string &c
 			jmethodID tmp_method_id = env->GetStaticMethodID(tmp_class, method_name.c_str(), method_sign.c_str());
 
 			// 执行方法调用
-			jobject java_result = env->CallStaticObjectMethodA(tmp_class, tmp_method_id, java_args);
+			jobject java_result = env->CallStaticObjectMethodA(tmp_class, tmp_method_id, java_args.get());
 
 			// 转换返回值并返回
 			Value value = ToValue(env, java_result, nullptr);
