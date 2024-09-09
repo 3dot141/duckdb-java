@@ -1516,7 +1516,18 @@ void _duckdb_jdbc_register_scalar_func(JNIEnv *env, jclass, jobject conn_buf, js
 	// 创建 scalar_function, 内部调用 Java 方法
 	scalar_function_t scalar_function = GenJavaScalarFunc(connection, class_name_str, method_name_str, method_sign_str);
 
-	// 注册函数
-	ExtensionUtil::RegisterFunction(db_instance,
-	                                ScalarFunction(func_name_str, arguments, logical_return_type, scalar_function));
+	try {
+		// 获取
+		auto &function = ExtensionUtil::GetFunction(db_instance, func_name_str);
+		// 有
+		ExtensionUtil::AddFunctionOverload(
+		    db_instance, ScalarFunction(func_name_str, arguments, logical_return_type, scalar_function));
+	} catch (InvalidInputException ignore) {
+		// 没有
+		// 直接注册
+		// 注册函数
+		ExtensionUtil::RegisterFunction(db_instance,
+		                                ScalarFunction(func_name_str, arguments, logical_return_type, scalar_function));
+	}
+
 }
