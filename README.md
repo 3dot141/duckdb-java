@@ -20,3 +20,9 @@ This optionally takes an argument to only run a single test, for example:
 ```
 java -cp "build/release/duckdb_jdbc_tests.jar:build/release/duckdb_jdbc.jar"  org/duckdb/TestDuckDBJDBC test_valid_but_local_config_throws_exception
 ```
+
+### Build
+
+If in dev mode, run `make debug -j10`.
+
+If in release mode, run `make release -j10`.
