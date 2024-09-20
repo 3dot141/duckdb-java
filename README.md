@@ -26,3 +26,9 @@ java -cp "build/release/duckdb_jdbc_tests.jar:build/release/duckdb_jdbc.jar"  or
 If in dev mode, run `make debug -j10`.
 
 If in release mode, run `make release -j10`.
+
+
+### Pack
+
+Use Github Actions to Pack.
+Please visit https://github.com/3dot141/duckdb-java/actions to see the latest build.
