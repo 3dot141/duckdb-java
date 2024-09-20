@@ -14,6 +14,7 @@
 #include "duckdb/parser/parsed_data/create_type_info.hpp"
 #include "functions.hpp"
 
+#include <duckdb/catalog/catalog_entry/scalar_function_catalog_entry.hpp>
 #include <sys/stat.h>
 
 using namespace duckdb;
@@ -1518,11 +1519,16 @@ void _duckdb_jdbc_register_scalar_func(JNIEnv *env, jclass, jobject conn_buf, js
 
 	try {
 		// 获取
-		auto &function = ExtensionUtil::GetFunction(db_instance, func_name_str);
-		// 有
-		ExtensionUtil::AddFunctionOverload(
+		auto &functionEntry = ExtensionUtil::GetFunction(db_instance, func_name_str);
+		try {
+			// 判断是否重复
+			ScalarFunction function = functionEntry.functions.GetFunctionByArguments(*connection->context, arguments);
+		} catch (Exception& ignore) {
+			// 没有函数， 则添加函数
+			ExtensionUtil::AddFunctionOverload(
 		    db_instance, ScalarFunction(func_name_str, arguments, logical_return_type, scalar_function));
-	} catch (InvalidInputException ignore) {
+		}
+	} catch (Exception& ignore) {
 		// 没有
 		// 直接注册
 		// 注册函数
