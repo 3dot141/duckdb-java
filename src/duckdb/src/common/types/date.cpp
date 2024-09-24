@@ -250,11 +250,16 @@ bool Date::TryConvertDate(const char *buf, idx_t len, idx_t &pos, date_t &result
 		return pos == len;
 	}
 	// first parse the year
+	idx_t year_length = 0;
 	for (; pos < len && StringUtil::CharacterIsDigit(buf[pos]); pos++) {
 		if (year >= 100000000) {
 			return false;
 		}
 		year = (buf[pos] - '0') + year * 10;
+		year_length++;
+	}
+	if (year_length < 2 && strict) {
+		return false;
 	}
 	if (yearneg) {
 		year = -year;
@@ -499,10 +504,10 @@ int32_t Date::ExtractISODayOfTheWeek(date_t date) {
 	// 7  = 4
 	if (date.days < 0) {
 		// negative date: start off at 4 and cycle downwards
-		return (7 - ((-int64_t(date.days) + 3) % 7));
+		return UnsafeNumericCast<int32_t>((7 - ((-int64_t(date.days) + 3) % 7)));
 	} else {
 		// positive date: start off at 4 and cycle upwards
-		return ((int64_t(date.days) + 3) % 7) + 1;
+		return UnsafeNumericCast<int32_t>(((int64_t(date.days) + 3) % 7) + 1);
 	}
 }
 

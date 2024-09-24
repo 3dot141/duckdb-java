@@ -31,6 +31,10 @@ struct CSVStates {
 		       (states[1] == CSVState::RECORD_SEPARATOR || states[1] == CSVState::CARRIAGE_RETURN);
 	}
 
+	inline bool WasStandard() {
+		return states[0] == CSVState::STANDARD;
+	}
+
 	inline bool EmptyLastValue() {
 		// It is a new row, if the previous state is not a record separator, and the current one is
 		return states[0] == CSVState::DELIMITER &&
@@ -45,6 +49,10 @@ struct CSVStates {
 
 	inline bool IsNotSet() {
 		return states[1] == CSVState::NOT_SET;
+	}
+
+	inline bool IsComment() {
+		return states[1] == CSVState::COMMENT;
 	}
 
 	inline bool IsCurrentNewRow() {
@@ -90,6 +98,14 @@ public:
 		states.states[1] = transition_array[static_cast<uint8_t>(current_char)][static_cast<uint8_t>(states.states[1])];
 	}
 
+	void Print() {
+		std::cout << "State Machine Options" << '\n';
+		std::cout << "Delim: " << state_machine_options.delimiter.GetValue() << '\n';
+		std::cout << "Quote: " << state_machine_options.quote.GetValue() << '\n';
+		std::cout << "Escape: " << state_machine_options.escape.GetValue() << '\n';
+		std::cout << "Comment: " << state_machine_options.comment.GetValue() << '\n';
+		std::cout << "---------------------" << '\n';
+	}
 	//! The Transition Array is a Finite State Machine
 	//! It holds the transitions of all states, on all 256 possible different characters
 	const StateMachine &transition_array;

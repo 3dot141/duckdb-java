@@ -7,6 +7,7 @@
 #include "duckdb/planner/expression/list.hpp"
 #include "duckdb/planner/expression_iterator.hpp"
 #include "duckdb/common/operator/cast_operators.hpp"
+#include "duckdb/main/client_config.hpp"
 
 namespace duckdb {
 
@@ -36,18 +37,21 @@ ExpressionBinder::~ExpressionBinder() {
 }
 
 void ExpressionBinder::InitializeStackCheck() {
+	static constexpr idx_t INITIAL_DEPTH = 5;
 	if (binder.HasActiveBinder()) {
-		stack_depth = binder.GetActiveBinder().stack_depth;
+		stack_depth = binder.GetActiveBinder().stack_depth + INITIAL_DEPTH;
 	} else {
-		stack_depth = 0;
+		stack_depth = INITIAL_DEPTH;
 	}
 }
 
 StackChecker<ExpressionBinder> ExpressionBinder::StackCheck(const ParsedExpression &expr, idx_t extra_stack) {
 	D_ASSERT(stack_depth != DConstants::INVALID_INDEX);
-	if (stack_depth + extra_stack >= MAXIMUM_STACK_DEPTH) {
-		throw BinderException("Maximum recursion depth exceeded (Maximum: %llu) while binding \"%s\"",
-		                      MAXIMUM_STACK_DEPTH, expr.ToString());
+	auto &options = ClientConfig::GetConfig(context);
+	if (stack_depth + extra_stack >= options.max_expression_depth) {
+		throw BinderException("Max expression depth limit of %lld exceeded. Use \"SET max_expression_depth TO x\" to "
+		                      "increase the maximum expression depth.",
+		                      options.max_expression_depth);
 	}
 	return StackChecker<ExpressionBinder>(*this, extra_stack);
 }
@@ -66,7 +70,7 @@ BindResult ExpressionBinder::BindExpression(unique_ptr<ParsedExpression> &expr, 
 	case ExpressionClass::COLLATE:
 		return BindExpression(expr_ref.Cast<CollateExpression>(), depth);
 	case ExpressionClass::COLUMN_REF:
-		return BindExpression(expr_ref.Cast<ColumnRefExpression>(), depth);
+		return BindExpression(expr_ref.Cast<ColumnRefExpression>(), depth, root_expression);
 	case ExpressionClass::LAMBDA_REF:
 		return BindExpression(expr_ref.Cast<LambdaRefExpression>(), depth);
 	case ExpressionClass::COMPARISON:
@@ -388,6 +392,10 @@ BindResult ExpressionBinder::BindUnsupportedExpression(ParsedExpression &expr, i
 
 bool ExpressionBinder::IsUnnestFunction(const string &function_name) {
 	return function_name == "unnest" || function_name == "unlist";
+}
+
+bool ExpressionBinder::TryBindAlias(ColumnRefExpression &colref, bool root_expression, BindResult &result) {
+	return false;
 }
 
 } // namespace duckdb

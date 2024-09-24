@@ -6,6 +6,8 @@
 
 #include "src/common/box_renderer.cpp"
 
+#include "src/common/cgroups.cpp"
+
 #include "src/common/compressed_file_system.cpp"
 
 #include "src/common/constants.cpp"
@@ -31,6 +33,8 @@
 #include "src/common/gzip_file_system.cpp"
 
 #include "src/common/hive_partitioning.cpp"
+
+#include "src/common/http_util.cpp"
 
 #include "src/common/pipe_file_system.cpp"
 

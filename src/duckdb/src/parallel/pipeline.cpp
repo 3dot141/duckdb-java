@@ -2,7 +2,7 @@
 
 #include "duckdb/common/algorithm.hpp"
 #include "duckdb/common/printer.hpp"
-#include "duckdb/common/tree_renderer.hpp"
+#include "duckdb/common/tree_renderer/text_tree_renderer.hpp"
 #include "duckdb/execution/executor.hpp"
 #include "duckdb/execution/operator/aggregate/physical_ungrouped_aggregate.hpp"
 #include "duckdb/execution/operator/scan/physical_table_scan.hpp"
@@ -74,7 +74,7 @@ ClientContext &Pipeline::GetClientContext() {
 
 bool Pipeline::GetProgress(double &current_percentage, idx_t &source_cardinality) {
 	D_ASSERT(source);
-	source_cardinality = source->estimated_cardinality;
+	source_cardinality = MinValue<idx_t>(source->estimated_cardinality, 1ULL << 48ULL);
 	if (!initialized) {
 		current_percentage = 0;
 		return true;
@@ -245,7 +245,7 @@ void Pipeline::AddDependency(shared_ptr<Pipeline> &pipeline) {
 }
 
 string Pipeline::ToString() const {
-	TreeRenderer renderer;
+	TextTreeRenderer renderer;
 	return renderer.ToString(*this);
 }
 
