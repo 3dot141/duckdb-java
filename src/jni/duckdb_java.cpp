@@ -1560,31 +1560,47 @@ static scalar_function_t GenJavaScalarFunc(Connection *conn_ref, const string &c
 	                                    return_type](DataChunk &args, ExpressionState &state, Vector &result) {
 		// Get JNIEnv from vm
 		JNIEnv *env;
-		jvm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION);
-
+		auto envStatus = jvm -> GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION);
+		if (envStatus != JNI_OK) {
+			jvm -> AttachCurrentThread(reinterpret_cast<void **>(&env), nullptr);
+		}
 
 		try {
-			// 初始化参数
-			auto num_columns = args.ColumnCount();
-			std::unique_ptr<jvalue[]> java_args(new jvalue[num_columns]);
-
-			for (idx_t column = 0; column < num_columns; column++) {
-				auto val = args.GetValue(column, 0);
-				java_args[column].l = value_to_jobject(env, val);
-			}
 
 			// 获取类和方法
 			jclass tmp_class = env->FindClass(class_name.c_str());
 			jmethodID tmp_method_id = env->GetStaticMethodID(tmp_class, method_name.c_str(), method_sign.c_str());
 
-			// 执行方法调用
-			jobject java_result = env->CallStaticObjectMethodA(tmp_class, tmp_method_id, java_args.get());
+			// 初始化参数
+			auto num_columns = args.ColumnCount();
+			auto rows = args.size();
 
-			// 转换返回值并返回
-			Value value = ToValue(env, java_result, return_type, nullptr);
-			result.Reference(value);
+			for (idx_t row = 0; row < rows; row++) {
+
+				std::unique_ptr<jvalue[]> java_args(new jvalue[num_columns]);
+
+				for (idx_t column = 0; column < num_columns; column++) {
+					auto val = args.GetValue(column, row);
+					java_args[column].l = value_to_jobject(env, val);
+				}
+
+				// 执行方法调用
+				jobject java_result = env->CallStaticObjectMethodA(tmp_class, tmp_method_id, java_args.get());
+
+				// 转换返回值并返回
+				Value value = ToValue(env, java_result, return_type, nullptr);
+				result.SetValue(row, value);
+			}
+
+			if (envStatus != JNI_OK) {
+				jvm -> DetachCurrentThread();
+			}
 
 		} catch (const Exception& e) {
+
+			if (envStatus != JNI_OK) {
+				jvm -> DetachCurrentThread();
+			}
 			duckdb::ErrorData error(e);
 			ThrowJNI(env, error.Message().c_str());
 		}
