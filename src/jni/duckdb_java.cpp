@@ -659,6 +659,117 @@ struct ResultHolder {
 	duckdb::unique_ptr<DataChunk> chunk;
 };
 
+Value ToValue(JNIEnv *env, jobject param, LogicalType returnType, duckdb::shared_ptr<ClientContext> context) {
+	param = env->CallStaticObjectMethod(J_DuckDBTimestamp, J_DuckDBTimestamp_valueOf, param);
+
+	if (param == nullptr) {
+		return (Value(returnType));
+	} else if (env->IsInstanceOf(param, J_Bool)) {
+		return (Value::BOOLEAN(env->CallBooleanMethod(param, J_Bool_booleanValue)));
+	} else if (env->IsInstanceOf(param, J_Byte)) {
+		return (Value::TINYINT(env->CallByteMethod(param, J_Byte_byteValue)));
+	} else if (env->IsInstanceOf(param, J_Short)) {
+		return (Value::SMALLINT(env->CallShortMethod(param, J_Short_shortValue)));
+	} else if (env->IsInstanceOf(param, J_Int)) {
+		return (Value::INTEGER(env->CallIntMethod(param, J_Int_intValue)));
+	} else if (env->IsInstanceOf(param, J_Long)) {
+		return (Value::BIGINT(env->CallLongMethod(param, J_Long_longValue)));
+	} else if (env->IsInstanceOf(param, J_Date)) {
+		return Value::DATE((date_t)env->CallNonvirtualLongMethod(param, J_Date, J_Date_getTime));
+	} else if (env->IsInstanceOf(param, J_Time)) {
+		return Value::TIME((dtime_t)env->CallNonvirtualLongMethod(param, J_Date, J_Date_getTime));
+	} else if (env->IsInstanceOf(param, J_Timestamp)) {
+		return Value::TIMESTAMP((timestamp_t)env->CallNonvirtualLongMethod(param, J_Date, J_Date_getTime));
+	} else if (env->IsInstanceOf(param, J_DuckDBTimestampTZ)) { // Check for subclass before superclass!
+		return (Value::TIMESTAMPTZ((timestamp_t)env->CallLongMethod(param, J_DuckDBTimestampTZ_getMicrosEpoch)));
+	} else if (env->IsInstanceOf(param, J_DuckDBDate)) {
+		return (Value::DATE((date_t)env->CallLongMethod(param, J_DuckDBDate_getDaysSinceEpoch)));
+	} else if (env->IsInstanceOf(param, J_DuckDBTime)) {
+		return (Value::TIME((dtime_t)env->CallLongMethod(param, J_DuckDBTimestamp_getMicrosEpoch)));
+	} else if (env->IsInstanceOf(param, J_DuckDBTimestamp)) {
+		return (Value::TIMESTAMP((timestamp_t)env->CallLongMethod(param, J_DuckDBTimestamp_getMicrosEpoch)));
+	} else if (env->IsInstanceOf(param, J_Float)) {
+		return (Value::FLOAT(env->CallFloatMethod(param, J_Float_floatValue)));
+	} else if (env->IsInstanceOf(param, J_Double)) {
+		return (Value::DOUBLE(env->CallDoubleMethod(param, J_Double_doubleValue)));
+	} else if (env->IsInstanceOf(param, J_Decimal)) {
+		Value val = create_value_from_bigdecimal(env, param);
+		return (val);
+	} else if (env->IsInstanceOf(param, J_String)) {
+		auto param_string = jstring_to_string(env, (jstring)param);
+		return (Value(param_string));
+	} else if (env->IsInstanceOf(param, J_ByteArray)) {
+		return (Value::BLOB_RAW(byte_array_to_string(env, (jbyteArray)param)));
+	} else if (env->IsInstanceOf(param, J_UUID)) {
+		auto most_significant = (jlong)env->CallObjectMethod(param, J_UUID_getMostSignificantBits);
+		auto least_significant = (jlong)env->CallObjectMethod(param, J_UUID_getLeastSignificantBits);
+		return (Value::UUID(hugeint_t(most_significant, least_significant)));
+	} else if (env->IsInstanceOf(param, J_DuckMap)) {
+		auto typeName = jstring_to_string(env, (jstring)env->CallObjectMethod(param, J_DuckMap_getSQLTypeName));
+
+		LogicalType type;
+		context->RunFunctionInTransaction([&]() { type = TransformStringToLogicalType(typeName, *context); });
+
+		auto entrySet = env->CallObjectMethod(param, J_Map_entrySet);
+		auto iterator = env->CallObjectMethod(entrySet, J_Set_iterator);
+		duckdb::vector<Value> entries;
+		while (env->CallBooleanMethod(iterator, J_Iterator_hasNext)) {
+			auto entry = env->CallObjectMethod(iterator, J_Iterator_next);
+
+			auto key = env->CallObjectMethod(entry, J_Entry_getKey);
+			auto value = env->CallObjectMethod(entry, J_Entry_getValue);
+			D_ASSERT(key);
+			D_ASSERT(value);
+
+			entries.push_back(
+			    Value::STRUCT({{"key", ToValue(env, key, returnType,context)}, {"value", ToValue(env, value, returnType,context)}}));
+		}
+
+		return (Value::MAP(ListType::GetChildType(type), entries));
+
+	} else if (env->IsInstanceOf(param, J_Struct)) {
+		auto typeName = jstring_to_string(env, (jstring)env->CallObjectMethod(param, J_Struct_getSQLTypeName));
+
+		LogicalType type;
+		context->RunFunctionInTransaction([&]() { type = TransformStringToLogicalType(typeName, *context); });
+
+		auto jvalues = (jobjectArray)env->CallObjectMethod(param, J_Struct_getAttributes);
+
+		int size = env->GetArrayLength(jvalues);
+
+		child_list_t<Value> values;
+
+		for (int i = 0; i < size; i++) {
+			auto name = StructType::GetChildName(type, i);
+
+			auto value = env->GetObjectArrayElement(jvalues, i);
+
+			values.emplace_back(name, ToValue(env, value, returnType,context));
+		}
+
+		return (Value::STRUCT(std::move(values)));
+	} else if (env->IsInstanceOf(param, J_Array)) {
+		auto typeName = jstring_to_string(env, (jstring)env->CallObjectMethod(param, J_Array_getBaseTypeName));
+		auto jvalues = (jobjectArray)env->CallObjectMethod(param, J_Array_getArray);
+		int size = env->GetArrayLength(jvalues);
+
+		LogicalType type;
+		context->RunFunctionInTransaction([&]() { type = TransformStringToLogicalType(typeName, *context); });
+
+		duckdb::vector<Value> values;
+		for (int i = 0; i < size; i++) {
+			auto value = env->GetObjectArrayElement(jvalues, i);
+
+			values.emplace_back(ToValue(env, value, returnType,context));
+		}
+
+		return (Value::LIST(type, values));
+
+	} else {
+		throw InvalidInputException("Unsupported parameter type");
+	}
+}
+
 Value ToValue(JNIEnv *env, jobject param, duckdb::shared_ptr<ClientContext> context) {
 	param = env->CallStaticObjectMethod(J_DuckDBTimestamp, J_DuckDBTimestamp_valueOf, param);
 
@@ -1371,6 +1482,10 @@ static jobject value_to_jobject(JNIEnv *env, const Value &val) {
 
 	const LogicalType &val_type = val.type();
 	LogicalTypeId type_id = val_type.HasAlias() ? LogicalTypeId::UNKNOWN : val_type.id();
+	// 如果是 null
+	if (val.IsNull()) {
+		return nullptr;
+	}
 
 	switch (type_id) {
 	case LogicalTypeId::BOOLEAN: {
@@ -1436,11 +1551,11 @@ static jobject value_to_jobject(JNIEnv *env, const Value &val) {
 	return result;
 }
 
-static scalar_function_t GenJavaScalarFunc(Connection *conn_ref, const string &class_name, const string &method_name,
-                                           const string &method_sign) {
+static scalar_function_t GenJavaScalarFunc(Connection *conn_ref, const string &class_name,
+	const string &method_name, const string &method_sign, const LogicalType &return_type) {
 
-	scalar_function_t javaScalarFunc = [&conn_ref, class_name, method_name,
-	                                    method_sign](DataChunk &args, ExpressionState &state, Vector &result) {
+	scalar_function_t javaScalarFunc = [&conn_ref, class_name, method_name, method_sign,
+	                                    return_type](DataChunk &args, ExpressionState &state, Vector &result) {
 		// Get JNIEnv from vm
 		JNIEnv *env;
 		jvm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION);
@@ -1464,10 +1579,10 @@ static scalar_function_t GenJavaScalarFunc(Connection *conn_ref, const string &c
 			jobject java_result = env->CallStaticObjectMethodA(tmp_class, tmp_method_id, java_args.get());
 
 			// 转换返回值并返回
-			Value value = ToValue(env, java_result, nullptr);
+			Value value = ToValue(env, java_result, return_type, nullptr);
 			result.Reference(value);
 
-		} catch (const std::exception &e) {
+		} catch (const Exception& e) {
 			duckdb::ErrorData error(e);
 			ThrowJNI(env, error.Message().c_str());
 		}
@@ -1515,7 +1630,7 @@ void _duckdb_jdbc_register_scalar_func(JNIEnv *env, jclass, jobject conn_buf, js
 	auto logical_return_type = jclass_to_logical(env, return_type);
 
 	// 创建 scalar_function, 内部调用 Java 方法
-	scalar_function_t scalar_function = GenJavaScalarFunc(connection, class_name_str, method_name_str, method_sign_str);
+	scalar_function_t scalar_function = GenJavaScalarFunc(connection, class_name_str, method_name_str, method_sign_str, logical_return_type);
 
 	try {
 		// 获取
