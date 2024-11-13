@@ -32,7 +32,8 @@ set(CMAKE_JAVA_COMPILE_FLAGS -source 1.8 -target 1.8 -encoding utf-8)
 add_definitions(-DDUCKDB_BUILD_LIBRARY)
 
 if(MSVC)
-  add_definitions(/bigobj /D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
+  message("使用 MSVC")
+  add_definitions(/bigobj /D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR /MT)
 else()
   # 添加 debug 参数， 从而帮助 debug
   #  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g ")
