@@ -38,7 +38,6 @@ jobs:
         with:
           key: ${{ github.job }}
           save: ${{ github.ref == 'refs/heads/main' || github.repository != 'duckdb/duckdb-java' }}
-
       - name: Build
         shell: bash
         run: make release -j4
